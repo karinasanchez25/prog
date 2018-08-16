@@ -1,0 +1,358 @@
+package game;
+
+import java.awt.Color;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Application;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.stage.Screen;
+import javafx.util.Duration;
+
+public class Game extends Application{
+
+    private GridPane gridPaneMatrix;
+    private Label[][] matrix;
+    private Calculate calculator;
+    private Button buttonStart, buttonPause, buttonStep, buttonRestore, buttonRedefine;
+    private String colorLife, colorDeath;
+    private Label labelGeneration, labelPopulation;
+    private Timeline animation;
+    private ComboBox<String> comboBox;
+    private Rectangle2D primaryScreenBounds;
+    
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+        
+        primaryScreenBounds = Screen.getPrimary().getVisualBounds();   
+        
+        colorLife = "F3CBFB";
+        colorDeath = "A6057B";
+        
+        
+        BorderPane root = new BorderPane();
+        root.getStylesheets().addAll(getClass().getResource("StyleGame.css").toExternalForm());
+        
+        gridPaneMatrix = new GridPane();
+        gridPaneMatrix.setPrefSize(primaryScreenBounds.getWidth() * 0.60, primaryScreenBounds.getHeight() * 0.75);
+        gridPaneMatrix.setPadding(new Insets(5, 20, 5, 20));
+        gridPaneMatrix.setAlignment(Pos.CENTER);
+        
+        defineMatrix(60, 30);
+        
+        animation = new Timeline(new KeyFrame(Duration.millis(80), new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                calculator.createPattern();
+                calculator.increaseGeneration(1);
+                updateGeneration();
+                updatePopulation();
+            }
+        }));
+        
+        animation.setCycleCount(Timeline.INDEFINITE);
+        
+        calculator = new Calculate(matrix, colorDeath, colorLife);      
+        
+        HBox boxTop = new HBox();
+        boxTop.setPadding(new Insets(50, 10, 10, 10));
+        boxTop.setSpacing(15);
+        boxTop.setAlignment(Pos.CENTER);
+        boxTop.setStyle("-fx-background-color: F3CBFB;");
+        
+        buttonStart = new Button("Comenzar Juego");
+        buttonStart.setPrefSize(145,40);
+        buttonStart.getStyleClass().add("button");
+        buttonStart.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent e) {
+                if (Integer.valueOf(calculator.getPopulation()) > 0) {
+                    animation.play();
+                    ((Button)e.getSource()).setDisable(true);
+                    buttonPause.setDisable(false);
+                    buttonStep.setDisable(true);
+                    buttonRestore.setDisable(true);
+                    buttonRedefine.setDisable(true);
+                    comboBox.setDisable(true);
+                } else {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("La cuadricula está vacía");
+                    alert.setHeaderText(null);
+                    alert.setContentText("El juego comienza al menos con una célula viva");
+                    alert.showAndWait();
+                }
+            }
+        });
+        
+        buttonPause = new Button("Pausa");
+        buttonPause.setDisable(true);
+        buttonPause.setPrefSize(145, 40);
+        buttonPause.getStyleClass().add("button");
+        buttonPause.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                animation.stop();
+                ((Button) event.getSource()).setDisable(true);
+                buttonStep.setDisable(false);
+                buttonStart.setDisable(false);
+                buttonRestore.setDisable(false);
+            }
+        });
+        
+        buttonStep = new Button("Paso a paso");
+        buttonStep.setDisable(false);
+        buttonStep.setPrefSize(145, 40);
+        buttonStep.getStyleClass().add("button");
+        buttonStep.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                if (Integer.valueOf(calculator.getPopulation()) > 0) calculator.createPattern();
+                else {
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("La cuadricula está vacía");
+                    alert.setHeaderText(null);
+                    alert.setContentText("El juego comienza al menos con una célula viva");
+                    alert.showAndWait();
+                }
+            }
+        });
+        
+        buttonRestore = new Button("Limpiar");
+        buttonRestore.setDisable(false);
+        buttonRestore.setPrefSize(145, 40);
+        buttonRestore.getStyleClass().add("button");
+        buttonRestore.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {               
+                calculator.restoreMatrix();
+                calculator.setGeneration(0l);
+                calculator.setPopulation(0l);
+                updateGeneration();
+                updatePopulation();
+                buttonRedefine.setDisable(false);
+                comboBox.setDisable(false);
+                ((Button)event.getSource()).setDisable(true);
+            }
+        });
+        
+        labelGeneration = new Label("Generaciones: "+calculator.getGeneration());
+        labelGeneration.setPrefSize(150, 40);
+        labelGeneration.getStyleClass().add("label-information");
+        
+        labelPopulation = new Label("Población: "+calculator.getPopulation());
+        labelPopulation.setPrefSize(150, 40);
+        labelPopulation.getStyleClass().add("label-information");       
+        
+        boxTop.getChildren().addAll(buttonStart,buttonPause, buttonStep, labelGeneration, labelPopulation);
+        
+        HBox boxBottom = new HBox();
+        boxBottom.setPadding(new Insets(10, 10, 50, 10));
+        boxBottom.setSpacing(10);
+        boxBottom.setAlignment(Pos.CENTER);
+        boxBottom.setStyle("-fx-background-color: F3CBFB;");
+        
+        comboBox = new ComboBox<>();
+        comboBox.getItems().addAll( "70x70", "50x50", "40x40", "20x20");      
+        comboBox.setValue("60x60");
+        
+        Label LabelDefineGrid = new Label("Tamaño de Cuadricula: ");
+        LabelDefineGrid.getStyleClass().add("label-information");
+        
+        buttonRedefine = new Button("Cambiar Tamaño");
+        buttonRedefine.getStyleClass().add("button");
+        buttonRedefine.setPrefSize(145, 40);
+        buttonRedefine.setOnMouseClicked(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {   
+                gridPaneMatrix.getChildren().clear();
+                String[] coordinates = comboBox.getValue().split("x");
+                
+                defineMatrix(Integer.valueOf(coordinates[0]), Integer.valueOf(coordinates[1]));
+                calculator.redefineReplic(matrix);
+                root.setCenter(gridPaneMatrix);
+            }
+        });
+        
+        boxBottom.getChildren().addAll(LabelDefineGrid, comboBox, buttonRedefine, buttonRestore);
+        
+        root.setTop(boxTop);
+        root.setCenter(gridPaneMatrix);
+        root.setBottom(boxBottom);
+        root.getStyleClass().add("border-pane");
+               
+        Scene scene = new Scene(root, (primaryScreenBounds.getWidth() * 0.5625), (primaryScreenBounds.getHeight() * 0.867));
+
+        primaryStage.setTitle("Juego de la Vida");
+        primaryStage.setScene(scene);      
+        primaryStage.centerOnScreen();
+        
+        primaryStage.show();         
+    }
+    
+    private void defineMatrix(int rows, int cols) {  
+        
+        matrix = new Label[rows][cols];
+        
+        for (int i = 0; i < matrix.length; i++) 
+            for (int j = 0; j < matrix[i].length; j++) {
+                
+                matrix[i][j] = new Label();
+                matrix[i][j].setAccessibleHelp(i+","+j);
+                matrix[i][j].getStyleClass().add("classic-label");
+                matrix[i][j].setStyle("-fx-background-color: "+colorDeath+";");
+                matrix[i][j].setMinWidth(primaryScreenBounds.getWidth() * 0.0070);
+                matrix[i][j].setMinHeight(primaryScreenBounds.getWidth() * 0.01);
+                matrix[i][j].setMaxWidth(primaryScreenBounds.getWidth() * 0.0090);
+                matrix[i][j].setMaxHeight(primaryScreenBounds.getWidth() * 0.001);
+                matrix[i][j].setOnMouseClicked(new EventHandler<MouseEvent>() {
+                    @Override
+                    public void handle(MouseEvent event) {
+                        String[] coords = ((Label)event.getSource()).getAccessibleHelp().split(",");
+                        
+                        int x = calculator.modifyReplic(Integer.valueOf(coords[0]) + 1, Integer.valueOf(coords[1]) + 1);
+                        ((Label)event.getSource()).setStyle("-fx-background-color: "+((x == 1) ? colorLife : colorDeath)+";");
+                        calculator.modifyPopulation(x == 1);
+                        updatePopulation();
+                    }
+                });
+                
+                gridPaneMatrix.add(matrix[i][j], i, j);
+                
+            }
+    }
+    
+    private void updateGeneration() {
+        labelGeneration.setText("Generaciones: "+calculator.getGeneration());
+    }
+    
+    private void updatePopulation() {
+        labelPopulation.setText("Población: "+calculator.getPopulation());
+    }
+    
+    public static void main(String[] args) {
+        Application.launch(args);
+    }
+}
+
+package game;
+
+import javafx.scene.control.Label;
+
+public class Calculate {
+    
+    private int[][] replic;
+    private String colorDeath, colorLife;
+    private long population, generation;
+    private Label[][] matrix;
+    
+    public Calculate(Label[][] matrix, String ColorDeath, String ColorLife) {       
+        this.matrix = matrix;
+        this.colorLife = ColorLife;
+        this.colorDeath = ColorDeath;
+        this.population = 0l;
+        this.generation = 0l;
+        this.replic = new int[matrix.length + 2][matrix[0].length + 2];
+    }
+    
+    private int[][] copyReplic() {
+        int[][] copy = new int[replic.length][];
+        
+        for (int i = 0; i < copy.length; i++) 
+            copy[i] = replic[i].clone();       
+        
+        return copy;
+    }
+    
+    public int modifyReplic(int x, int y) {
+        replic[x][y] = (replic[x][y] == 0) ? 1 : 0;
+        
+        return replic[x][y];
+    }
+    
+    public void createPattern() {
+        evaluateReplic(copyReplic());
+    }
+    
+    private void evaluateReplic(int[][] copy) {
+        for (int i = 1; i < copy.length-1; i++) 
+            for (int j = 1; j < copy[i].length-1; j++) 
+                evaluateCell(i, j, copy);  
+    }
+    
+    private void evaluateCell(int row, int col, int[][] copy) {
+        int count = 0;
+        
+        for (int i = row - 1; i < (row + 2); i++) 
+            for (int j = col - 1; j < (col + 2); j++) 
+                if (copy[i][j] == 1 && (i != row || j != col)) 
+                    count+=1;             
+        
+        if ((count < 2 && copy[row][col] == 1) || (count > 3 && copy[row][col] == 1)) {
+            population -= 1;
+            replic[row][col] = 0;
+            matrix[row - 1][col - 1].setStyle("-fx-background-color: "+this.colorDeath+";");
+        } else 
+            if (count == 3 && copy[row][col] == 0) {
+                population += 1;
+                replic[row][col] = 1;
+                matrix[row - 1][col - 1].setStyle("-fx-background-color: "+this.colorLife+";");                
+            }
+    }
+    
+    public void restoreMatrix() {
+        if (population > 0) {
+            for (int i = 0, c = 0; i < matrix.length && c < population; i++) 
+                for (int j = 0; j < matrix[i].length && c < population; j++) 
+                    if (replic[i + 1][j + 1] == 1) {
+                        c++;
+                        replic[i + 1][j + 1] = 0;
+                        matrix[i][j].setStyle("-fx-background-color: "+this.colorDeath+";");
+                    }                        
+        }
+    }
+    
+    public void redefineReplic(Label[][] matrix) {
+        this.matrix = matrix;
+        this.replic = new int[matrix.length + 2][matrix[0].length + 2];
+    }
+    
+    public void modifyPopulation(boolean r) {
+        population += (r) ? 1 : -1;
+    }
+    
+    public void increaseGeneration(int x) {
+        generation += x;
+    }
+    
+    public String getPopulation() {
+        return String.valueOf(population);
+    }
+    
+    public String getGeneration() {
+        return String.valueOf(generation);
+    }
+    
+    public void setGeneration(long x) {
+        generation = x;
+    }
+    
+    public void setPopulation(long x) {
+        population = x;
+    }
+    
+}
+
